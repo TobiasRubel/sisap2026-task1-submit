@@ -1,0 +1,8 @@
+# Keep the build context lean. Note that engine/ is NOT excluded: Dockerfile.build
+# needs it. Neither image grows as a result — COPY only brings in what it names,
+# and ./Dockerfile copies just the binary and the portfolio file.
+.git
+.gitignore
+*.md
+verify/out
+verify/corpus

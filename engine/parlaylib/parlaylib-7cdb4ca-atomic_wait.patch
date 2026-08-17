@@ -1,0 +1,24 @@
+ALREADY APPLIED — provenance record only. Do NOT `git apply` this file.
+
+The vendored headers in this directory already contain this change. It is recorded
+here so the delta against upstream cmuparlay/parlaylib@7cdb4cae8f020525f5eb4ad82e2565d1e38cfbc3
+is auditable. See PROVENANCE.md for the rationale.
+
+diff --git a/include/parlay/internal/atomic_wait.h b/include/parlay/internal/atomic_wait.h
+index d86550b..6a2d42e 100644
+--- a/include/parlay/internal/atomic_wait.h
++++ b/include/parlay/internal/atomic_wait.h
+@@ -58,6 +58,13 @@ The strategy is chosen this way, by platform:
+ #ifndef __ATOMIC_WAIT_INCLUDED
+ #define __ATOMIC_WAIT_INCLUDED
+ 
++// parlaylib-patch.md: force the custom atomic_wait path everywhere (Clang
++// rejects the std::atomic_wait variable-template wrapper, and mixing the
++// std path with the custom path across TUs is an ODR violation).
++#ifdef __cpp_lib_atomic_wait
++#undef __cpp_lib_atomic_wait
++#endif
++
+ #ifndef __cpp_lib_atomic_wait
+ 
+ #include <cstdint>

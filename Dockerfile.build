@@ -1,0 +1,98 @@
+# Reproducible build of the SISAP 2026 Task 1 engine from source.
+#
+#   docker build -f Dockerfile.build -t pipnn .
+#
+# Stage 1 builds /app/neighbors-pipnn from engine/; stage 2 is the runtime
+# image the binary is meant to run in. Every version below is pinned to what
+# the submission build used.
+
+# ---------------------------------------------------------------- build stage
+FROM ubuntu:22.04 AS build
+
+ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC
+
+# clang from apt.llvm.org. This exact version string is what appears in
+# the submitted binary's .comment section:
+#   Ubuntu clang version 21.1.8 (++20251221032842+2078da43e25a-1~exp1~20251221153008.77)
+ARG LLVM_VERSION=1:21.1.8~++20251221032842+2078da43e25a-1~exp1~20251221153008.77
+# GNU ld is the default linker and computes the SHA-1 build ID, so binutils is
+# a reproducibility input. cmake matters too: the PCH flag set it emits is
+# version-dependent. Use jammy's stock cmake — never Kitware's repo or pip.
+ARG BINUTILS_VERSION=2.38-4ubuntu2.12
+ARG CMAKE_VERSION=3.22.1-1ubuntu1.22.04.2
+ARG HDF5_VERSION=1.10.7+repack-4ubuntu2
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      binutils=${BINUTILS_VERSION} \
+      binutils-common=${BINUTILS_VERSION} \
+      binutils-x86-64-linux-gnu=${BINUTILS_VERSION} \
+      libbinutils=${BINUTILS_VERSION} \
+      cmake=${CMAKE_VERSION} \
+      libhdf5-dev=${HDF5_VERSION} \
+      git \
+      ca-certificates \
+      pkg-config \
+      wget \
+      gnupg \
+ && wget -qO /etc/apt/trusted.gpg.d/apt-llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key \
+ && echo "deb https://apt.llvm.org/jammy/ llvm-toolchain-jammy-21 main" \
+      > /etc/apt/sources.list.d/llvm-toolchain-jammy-21.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+      clang-21=${LLVM_VERSION} \
+      libclang-common-21-dev=${LLVM_VERSION} \
+      libclang-rt-21-dev=${LLVM_VERSION} \
+      libllvm21=${LLVM_VERSION} \
+      llvm-21-linker-tools=${LLVM_VERSION} \
+ && rm -rf /var/lib/apt/lists/*
+
+# Fail early and loudly if the toolchain is not the pinned one.
+RUN clang++-21 --version | head -1 \
+ && cmake --version | head -1 \
+ && test "$(cmake --version | head -1)" = "cmake version 3.22.1"
+
+ENV CC=clang-21 CXX=clang++-21
+
+# mimalloc's options.c embeds __DATE__/__TIME__ in its banner string; pinning
+# SOURCE_DATE_EPOCH (clang honours it for those macros) keeps the build
+# reproducible run-to-run.
+ENV SOURCE_DATE_EPOCH=1781740895
+
+COPY engine/ /app/external/PipNN/
+
+RUN cmake -S /app/external/PipNN -B /app/external/PipNN/build -DCMAKE_BUILD_TYPE=Release \
+ && cmake --build /app/external/PipNN/build -j"$(nproc)" \
+      --target neighbors-pipnn_FLOAT_T_MIPS \
+ && cp /app/external/PipNN/build/algorithms/PipNN/neighbors-pipnn_FLOAT_T_MIPS \
+       /app/neighbors-pipnn.unstripped \
+ && cp /app/neighbors-pipnn.unstripped /app/neighbors-pipnn \
+ && strip /app/neighbors-pipnn \
+ && sha256sum /app/neighbors-pipnn.unstripped /app/neighbors-pipnn
+
+# This engine does not use OpenMP. If libomp shows up in the link, something
+# has re-introduced a dependency it does not need.
+RUN readelf -d /app/neighbors-pipnn | grep -q 'libomp' \
+      && (echo 'FATAL: unexpected OpenMP dependency in rebuilt binary' && exit 1) \
+      || true
+
+# -------------------------------------------------------------- runtime stage
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libhdf5-103-1 \
+      libcurl4 \
+      libssl3 \
+      libsz2 \
+      zlib1g \
+      libomp5-14 \
+      libatomic1 \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=build /app/neighbors-pipnn /app/neighbors-pipnn
+COPY portfolio.task1.txt /app/portfolio.task1.txt
+
+# No ENTRYPOINT/CMD: TIRA supplies the full command.

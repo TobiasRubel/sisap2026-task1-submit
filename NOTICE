@@ -1,0 +1,46 @@
+PiPNN — SISAP 2026 Task 1
+=========================
+
+This repository contains the binary submitted to the SISAP 2026 Indexing Challenge
+(Task 1) and the source that produces it.
+
+The engine source under engine/ derives from PipNN / ParlayANN and is distributed
+under the MIT License (see LICENSE).
+
+
+Third-party components
+----------------------
+
+ParlayLib — vendored in engine/parlaylib/
+  https://github.com/cmuparlay/parlaylib
+  Commit 7cdb4cae8f020525f5eb4ad82e2565d1e38cfbc3
+  MIT License (engine/parlaylib/LICENSE)
+  Carries one local modification, already applied; see engine/parlaylib/PROVENANCE.md.
+
+The following are fetched at build time by CMake, each pinned to the exact commit
+used for the submitted binary. None is redistributed here.
+
+Eigen
+  https://gitlab.com/libeigen/eigen
+  Commit 3147391d946bb4b6c68edd901f2add6ac1f31f8c (3.4.0)
+  Mozilla Public License 2.0
+  Used by the random-rotation step of the quantizer (engine/.../rotation.h).
+
+Abseil
+  https://github.com/abseil/abseil-cpp
+  Commit bc257a88f7c1939f24e0379f14a3589e926c950c (20250512.0)
+  Apache License 2.0
+
+Google Highway
+  https://github.com/google/highway
+  Commit eb3479ebfceac4e2986dce3f902baa086904c4f9
+  Apache License 2.0
+
+mimalloc
+  https://github.com/microsoft/mimalloc
+  Commit f81bf1b31af819a31195e08f9546dc80f8931587 (v2.2.2)
+  MIT License
+
+HDF5
+  Provided by the system (libhdf5-dev). Not redistributed.
+  BSD-style license, HDF Group.
